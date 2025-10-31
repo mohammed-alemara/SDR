@@ -3,29 +3,23 @@ kernel.gaussian <- function(u, hu) {
   G<- exp(-(t(u) %*% u) / (2*hu*hu) )/(hu^l) 
   return(G) 
 } 
-MAVE.AdLASSO<-function(x0, y0, d) { 
-  
+MAVE.rEN<-function(x0, y0, d) { 
   x0<-as.matrix(x0) 
   y0<-as.vector(y0) 
   n<-dim(x0)[1] 
-  p<-dim(x0)[2]
-  
-  ######################
-  ## Standardize X ## #
-  #####################
-  
+  p<-dim(x0)[2] 
+  ## Standardize X  ## 
   colmean<-colMeans(x0) 
   colmean<-as.vector(colmean) 
   x1<-x0-rep(1, n)%*%t(colmean)          # center the observations 
   colsd<-apply(x1, 2, sd) 
   x2<-x1/rep(1, n)%*%t(colsd)           # scale the observations 
   X1<-as.matrix(x2) 
-  
   b0<-rep(1/sqrt(p), p) 
   betaold<-rep(1/sqrt(p), p) 
   n0<-0 
   bic_model<-array(0, d) 
-  for (q in 1:d) { #q=1
+  for (q in 1:d) { #q=d
     est_d<-q 
     h<-n^(-1/(4+est_d)) 
     bhat.ElasticNet<-matrix(0,10,p) 
@@ -33,9 +27,9 @@ MAVE.AdLASSO<-function(x0, y0, d) {
     dev.l1<-rep(0,10) 
     aic<-rep(0,10) 
     bic<-rep(0,10) 
-    ric<-rep(0,10)
+    ric<-rep(0,10) 
     # Loop starts: 
-    for (tao in 1:2) { 
+    for (tao in 1:10) { #tao=1
       stop<-0; iter<-0; rho1<-0; rho2<-0; rho3<-0 
       bold<-betaold 
       while (stop==0) { 
@@ -43,7 +37,7 @@ MAVE.AdLASSO<-function(x0, y0, d) {
         a<-rep(0,n) 
         b<-matrix(0, n, q) 
         w<-matrix(0, n, n) 
-        for(j in 1:n) { 
+        for(j in 1:n) { # j=1
           xj<-rep(X1[j, ], n) 
           dim(xj)<-c(p,n) 
           xk<-t(X1)-xj 
@@ -98,28 +92,24 @@ MAVE.AdLASSO<-function(x0, y0, d) {
           } 
         } 
         dd<-cbind(y.ElasticNet, x.ElasticNet) 
-        d1<-dd 
+        d1<-dd + rnorm(length(dd),0,0.00001)
         dim(d1)<-c(n*n, p+1); 
         d1<-as.matrix(d1)
         
-        ###################################
-        #shrinkage by use adaptive lasso  #     
-        ###################################  
+        ##########################################
+        #shrinkage by use reciprocal elastic net #     
+        ########################################## 
         
-        ols.lm<-lm(d1[, 1] ~ d1[, -1])
-        z<-ols.lm$coefficients[-1]
-        alasso.cv=cv.glmnet(d1[, -1], d1[, 1],alpha = 1,penalty.factor=1/abs(z))  
-        cv=alasso.cv$lambda.min
+        model.ElasticNet<-REN(d1[ ,-1],d1[ ,1])$beta[-1] 
         
-        model.ElasticNet<-glmnet(d1[ ,-1],d1[ ,1],alpha=1,scale=1, lambda=cv,,penalty.factor=1/abs(z)) 
-        coeff<-c(model.ElasticNet$beta)[[1]]
-        
+        coeff<- model.ElasticNet
+        coeff[is.na(coeff)] <- 0
         bnew2<-coeff 
         bnew2<-as.vector(bnew2) 
         if (est_d==1)  
-          bnew <- bnew2/c(sqrt(t(bnew2)%*%bnew2)) 
+          bnew <- bnew2/sqrt(t(bnew2)%*%bnew2) 
         if (est_d>1) { 
-          bnew<-cbind(bold[ ,-est_d], bnew2)
+          bnew<-cbind(bold[ ,-est_d], bnew2) 
           bnew<-orthonormalization(bnew, basis=F, norm=T)  
         } 
         rho1<-rho2; rho2<-rho3 
@@ -148,7 +138,8 @@ MAVE.AdLASSO<-function(x0, y0, d) {
   } 
   betanew<-as.matrix(betanew) 
   bic_model<-as.vector(bic_model) 
-  K<-rbind(betanew, t(bic_model)) 
+  K<-rbind(betanew, t(bic_model))
+  
   
   if(d==1){
     y     <- d1[ , 1]
@@ -160,10 +151,12 @@ MAVE.AdLASSO<-function(x0, y0, d) {
   }else {
     y     <- d1[ , 1]
     yhat  <- d1[ ,-1] %*% betanew
-    rss   <- mean((y-yhat[,1])^2) 
+    rss   <- mean((y-yhat[,1])^2)
     cor   <- cor(abs(y),abs(yhat)[,1])
     nz    <- length(which(betanew< 0.0001))
   }
   
-  list(K = K, d1 = d1, rss = rss , cor = cor , nz = nz , yhat = yhat)
+
+  list(K = K, d1 = d1, rss = rss , cor = cor , nz = nz)
 } 
+
