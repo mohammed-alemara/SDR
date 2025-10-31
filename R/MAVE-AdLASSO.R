@@ -8,8 +8,12 @@ MAVE.AdLASSO<-function(x0, y0, d) {
   x0<-as.matrix(x0) 
   y0<-as.vector(y0) 
   n<-dim(x0)[1] 
-  p<-dim(x0)[2] 
-  ## Standardize X  ## 
+  p<-dim(x0)[2]
+  
+  ######################
+  ## Standardize X ## #
+  #####################
+  
   colmean<-colMeans(x0) 
   colmean<-as.vector(colmean) 
   x1<-x0-rep(1, n)%*%t(colmean)          # center the observations 
@@ -29,7 +33,7 @@ MAVE.AdLASSO<-function(x0, y0, d) {
     dev.l1<-rep(0,10) 
     aic<-rep(0,10) 
     bic<-rep(0,10) 
-    ric<-rep(0,10) 
+    ric<-rep(0,10)
     # Loop starts: 
     for (tao in 1:2) { 
       stop<-0; iter<-0; rho1<-0; rho2<-0; rho3<-0 
